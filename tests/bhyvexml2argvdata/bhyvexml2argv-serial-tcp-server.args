@@ -1,0 +1,1 @@
+bhyve -c 1 -m 800 -A -H -P -s 0:0,hostbridge -l com1,tcp=192.168.1.100:1234,server bhyve-test-tcp-server

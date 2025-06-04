@@ -157,31 +157,61 @@ bhyveBuildNetArgStr(const virDomainDef *def,
 }
 
 static int
-bhyveBuildConsoleArgStr(const virDomainDef *def, virCommand *cmd)
+bhyveBuildConsoleArgStr(const virDomainDef *def,
+                          virCommand *cmd,
+                          struct _bhyveConn *driver)
 {
     virDomainChrDef *chr = NULL;
+    unsigned int capabilities;
 
-    if (!def->nserials)
+    if (def->nserials == 0)
         return 0;
 
-    chr = def->serials[0];
-
-    if (chr->source->type != VIR_DOMAIN_CHR_TYPE_NMDM) {
+    if (def->nserials > 1) {
         virReportError(VIR_ERR_CONFIG_UNSUPPORTED, "%s",
-                       _("only nmdm console types are supported"));
+                       _("bhyve only supports one serial port"));
         return -1;
     }
 
+    chr = def->serials[0];
+
     /* bhyve supports only two ports: com1 and com2 */
-    if (chr->target.port > 2) {
+    if (chr->target.port >= 2) { /* target.port is 0-indexed, so port 0 and 1 are valid */
         virReportError(VIR_ERR_CONFIG_UNSUPPORTED, "%s",
                        _("only two serial ports are supported"));
         return -1;
     }
 
     virCommandAddArg(cmd, "-l");
-    virCommandAddArgFormat(cmd, "com%d,%s",
-                           chr->target.port + 1, chr->source->data.file.path);
+
+    switch (chr->source->type) {
+    case VIR_DOMAIN_CHR_TYPE_NMDM:
+        virCommandAddArgFormat(cmd, "com%d,%s",
+                                chr->target.port + 1, chr->source->data.file.path);
+        break;
+    case VIR_DOMAIN_CHR_TYPE_TCP:
+        capabilities = bhyveDriverGetBhyveCaps(driver);
+        if (!(capabilities & BHYVE_CAP_SERIAL_TCP)) {
+            virReportError(VIR_ERR_CONFIG_UNSUPPORTED, "%s",
+                           _("bhyve version does not support TCP serial console redirection"));
+            return -1;
+        }
+        if (!chr->source->data.tcp.host || !chr->source->data.tcp.service) {
+            virReportError(VIR_ERR_CONFIG_UNSUPPORTED, "%s",
+                           _("TCP serial device needs host and port"));
+            return -1;
+        }
+        virCommandAddArgFormat(cmd, "com%d,tcp=%s:%s%s",
+                               chr->target.port + 1, chr->source->data.tcp.host,
+                               chr->source->data.tcp.service,
+                               chr->source->data.tcp.listen ? ",server" : "");
+        break;
+    default:
+        virReportError(VIR_ERR_CONFIG_UNSUPPORTED,
+                       _("Unsupported console type: %s"),
+                       virDomainChrTypeToString(chr->source->type));
+        return -1;
+    }
 
     return 0;
 }
@@ -860,7 +890,7 @@ virBhyveProcessBuildBhyveCmd(struct _bhyveConn *driver, virDomainDef *def,
             return NULL;
     }
 
-    if (bhyveBuildConsoleArgStr(def, cmd) < 0)
+    if (bhyveBuildConsoleArgStr(def, cmd, driver) < 0)
         return NULL;
 
     for (i = 0; i < def->nrngs; i++)

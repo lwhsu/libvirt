@@ -1,0 +1,22 @@
+<domain type='bhyve'>
+  <name>bhyve-test-tcp-server</name>
+  <uuid>c7a5fdbd-edaf-9455-926a-d65c16db1809</uuid>
+  <memory unit='KiB'>819200</memory>
+  <currentMemory unit='KiB'>819200</currentMemory>
+  <vcpu placement='static'>1</vcpu>
+  <os>
+    <type arch='x86_64' machine='pc-i440fx-2.1'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <devices>
+    <emulator>/usr/sbin/bhyve</emulator>
+    <serial type='tcp'>
+      <source mode='bind' host='192.168.1.100' service='1234'/>
+      <protocol type='raw'/> <!-- bhyve doesn't care about telnet/raw, but good to have for qemu compat -->
+      <target port='0'/> <!-- com1 -->
+    </serial>
+    <console type='pty'>
+      <target type='serial' port='0'/>
+    </console>
+  </devices>
+</domain>

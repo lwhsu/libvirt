@@ -193,7 +193,8 @@ mymain(void)
                        BHYVE_CAP_NET_E1000 | BHYVE_CAP_LPC_BOOTROM | \
                        BHYVE_CAP_FBUF | BHYVE_CAP_XHCI | \
                        BHYVE_CAP_CPUTOPOLOGY | BHYVE_CAP_SOUND_HDA | \
-                       BHYVE_CAP_VNC_PASSWORD | BHYVE_CAP_VIRTIO_9P;
+                       BHYVE_CAP_VNC_PASSWORD | BHYVE_CAP_VIRTIO_9P | \
+                       BHYVE_CAP_SERIAL_TCP;
 
     DO_TEST("base");
     DO_TEST("wired");
@@ -255,6 +256,14 @@ mymain(void)
     driver.bhyvecaps &= ~BHYVE_CAP_VIRTIO_RND;
     DO_TEST_FAILURE("virtio-rnd");
 
+    /* Serial TCP tests */
+    DO_TEST("serial-tcp-server");
+    DO_TEST("serial-tcp-client");
+    DO_TEST_FULL("serial-tcp-invalid", FLAG_EXPECT_FAILURE);
+    DO_TEST_FULL("serial-tcp-invalid-port", FLAG_EXPECT_FAILURE);
+    if (virTestRun("BHYVE XML-2-ARGV serial-tcp-nocap", testCompareXMLToArgvSerialTcpNoCap, NULL) < 0)
+        ret = -1;
+
     /* Address allocation tests */
     DO_TEST("addr-single-sata-disk");
     DO_TEST("addr-multiple-sata-disks");
@@ -308,6 +317,30 @@ mymain(void)
     virObjectUnref(driver.config);
 
     return ret == 0 ? EXIT_SUCCESS : EXIT_FAILURE;
+}
+
+static int
+testCompareXMLToArgvSerialTcpNoCap(const void *data G_GNUC_UNUSED)
+{
+    const struct testInfo info = { "serial-tcp-nocap", FLAG_EXPECT_FAILURE };
+    g_autofree char *xml = NULL;
+    g_autofree char *args = NULL;
+    g_autofree char *ldargs = NULL;
+    g_autofree char *dmargs = NULL;
+    unsigned int oldcaps;
+    int ret;
+
+    xml = g_strdup_printf("%s/bhyvexml2argvdata/bhyvexml2argv-%s.xml",
+                          abs_srcdir, info.name);
+
+    oldcaps = driver.bhyvecaps;
+    driver.bhyvecaps &= ~BHYVE_CAP_SERIAL_TCP;
+
+    ret = testCompareXMLToArgvFiles(xml, args, ldargs, dmargs, info.flags);
+
+    driver.bhyvecaps = oldcaps;
+
+    return ret;
 }
 
 VIR_TEST_MAIN_PRELOAD(mymain, VIR_TEST_MOCK("bhyvexml2argv"))

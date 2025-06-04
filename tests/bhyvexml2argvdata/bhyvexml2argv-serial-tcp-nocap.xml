@@ -1,0 +1,19 @@
+<domain type='bhyve'>
+  <name>bhyve-test-tcp-nocap</name>
+  <uuid>c7a5fdbd-edaf-9455-926a-d65c16db180B</uuid>
+  <memory unit='KiB'>819200</memory>
+  <currentMemory unit='KiB'>819200</currentMemory>
+  <vcpu placement='static'>1</vcpu>
+  <os>
+    <type arch='x86_64' machine='pc-i440fx-2.1'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <devices>
+    <emulator>/usr/sbin/bhyve</emulator>
+    <serial type='tcp'>
+      <source mode='bind' host='192.168.1.100' service='1234'/>
+      <protocol type='raw'/>
+      <target port='0'/>
+    </serial>
+  </devices>
+</domain>
