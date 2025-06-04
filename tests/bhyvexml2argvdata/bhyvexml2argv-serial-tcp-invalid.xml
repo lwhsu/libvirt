@@ -1,0 +1,18 @@
+<domain type='bhyve'>
+  <name>bhyve-test-invalid-tcp</name>
+  <uuid>c7a5fdbd-edaf-9455-926a-d65c16db180C</uuid>
+  <memory unit='KiB'>819200</memory>
+  <currentMemory unit='KiB'>819200</currentMemory>
+  <vcpu placement='static'>1</vcpu>
+  <os>
+    <type arch='x86_64' machine='pc-i440fx-2.1'>hvm</type>
+    <boot dev='hd'/>
+  </os>
+  <devices>
+    <emulator>/usr/sbin/bhyve</emulator>
+    <serial type='tcp'>
+      <source mode='bind' service='1234'/> <!-- Host is missing -->
+      <target port='0'/>
+    </serial>
+  </devices>
+</domain>

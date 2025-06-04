@@ -349,6 +349,17 @@ bhyveProbeCapsVirtioRnd(unsigned int *caps, char *binary)
 }
 
 
+static int
+bhyveProbeCapsSerialTCP(unsigned int *caps, char *binary)
+{
+    return bhyveProbeCapsDeviceHelper(caps, binary,
+                                      "-l",
+                                      "com1,tcp=127.0.0.1:1",
+                                      "invalid lpc device configuration 'tcp'",
+                                      BHYVE_CAP_SERIAL_TCP);
+}
+
+
 int
 virBhyveProbeCaps(unsigned int *caps)
 {
@@ -387,6 +398,9 @@ virBhyveProbeCaps(unsigned int *caps)
         goto out;
 
     if ((ret = bhyveProbeCapsVirtioRnd(caps, binary)))
+        goto out;
+
+    if ((ret = bhyveProbeCapsSerialTCP(caps, binary)))
         goto out;
 
  out:

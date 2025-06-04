@@ -246,6 +246,62 @@ serial device) is:
 
    cu -l /dev/nmdm0B
 
+Connecting to a guest console via TCP
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+:since:`Since X.Y.Z` (NB: Replace X.Y.Z with the actual libvirt version), guest serial
+consoles can also be redirected to a TCP port. This allows connecting to the
+guest's serial console over the network. The bhyve driver uses the same XML
+syntax as the QEMU driver for this feature.
+
+To configure a serial port to listen on a specific IP address and port (server mode):
+
+::
+
+   ...
+   <devices>
+     <serial type='tcp'>
+       <source mode='bind' host='192.168.0.2' service='4444'/>
+       <protocol type='raw'/> <!-- 'telnet' is also possible, but 'raw' is common -->
+       <target port='0'/> <!-- com1 -->
+       <alias name='serial0'/>
+     </serial>
+     <console type='pty'> <!-- Optional: if you still want a PTY console -->
+       <target type='serial' port='0'/>
+     </console>
+   </devices>
+   ...
+
+This will make bhyve start a TCP server listening on IP `192.168.0.2` and port
+`4444`. You can then connect to this address and port using a tool like
+`telnet` or `nc` to access the guest's serial console. Libvirt will generate
+the bhyve command-line argument: ``-l com1,tcp=192.168.0.2:4444,server``.
+
+To configure a serial port to connect to a remote TCP server (client mode):
+
+::
+
+   ...
+   <devices>
+     <serial type='tcp'>
+       <source mode='connect' host='192.168.0.2' service='4444'/>
+       <protocol type='raw'/>
+       <target port='1'/> <!-- com2 -->
+       <alias name='serial1'/>
+     </serial>
+   </devices>
+   ...
+
+In this case, bhyve will attempt to connect to a TCP server at `192.168.0.2`
+on port `4444`. Libvirt generates the bhyve command-line argument:
+``-l com2,tcp=192.168.0.2:4444``. If the `server` option is omitted in the
+bhyve command, it defaults to client (connect) mode.
+
+This feature is useful for remote console access or for integrating with
+other tools that can provide or consume serial data over TCP. Note that
+only ``com1`` (target port 0) and ``com2`` (target port 1) are generally
+supported by bhyve for serial devices.
+
 Converting from domain XML to Bhyve args
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
