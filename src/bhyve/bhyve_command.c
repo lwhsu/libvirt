@@ -166,9 +166,10 @@ bhyveBuildConsoleArgStr(const virDomainDef *def, virCommand *cmd)
 
     chr = def->serials[0];
 
-    if (chr->source->type != VIR_DOMAIN_CHR_TYPE_NMDM) {
+    if (chr->source->type != VIR_DOMAIN_CHR_TYPE_NMDM &&
+        chr->source->type != VIR_DOMAIN_CHR_TYPE_TCP) {
         virReportError(VIR_ERR_CONFIG_UNSUPPORTED, "%s",
-                       _("only nmdm console types are supported"));
+                       _("only nmdm or tcp console types are supported"));
         return -1;
     }
 
@@ -180,8 +181,32 @@ bhyveBuildConsoleArgStr(const virDomainDef *def, virCommand *cmd)
     }
 
     virCommandAddArg(cmd, "-l");
-    virCommandAddArgFormat(cmd, "com%d,%s",
-                           chr->target.port + 1, chr->source->data.file.path);
+
+    if (chr->source->type == VIR_DOMAIN_CHR_TYPE_NMDM) {
+        virCommandAddArgFormat(cmd, "com%d,%s",
+                               chr->target.port + 1,
+                               chr->source->data.file.path);
+    } else {
+        const char *host = chr->source->data.tcp.host;
+        const char *service = chr->source->data.tcp.service;
+        bool escapeAddr;
+
+        if (!host || !service) {
+            virReportError(VIR_ERR_INTERNAL_ERROR, "%s",
+                           _("missing host or service for tcp console"));
+            return -1;
+        }
+
+        escapeAddr = strchr(host, ':') != NULL;
+        if (escapeAddr)
+            virCommandAddArgFormat(cmd, "com%d,tcp=[%s]:%s",
+                                   chr->target.port + 1,
+                                   host, service);
+        else
+            virCommandAddArgFormat(cmd, "com%d,tcp=%s:%s",
+                                   chr->target.port + 1,
+                                   host, service);
+    }
 
     return 0;
 }

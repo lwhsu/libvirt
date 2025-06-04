@@ -275,36 +275,53 @@ bhyveParseBhyveLPCArg(virDomainDef *def,
         if (!(chr = virDomainChrDefNew(NULL)))
             goto error;
 
-        chr->source->type = VIR_DOMAIN_CHR_TYPE_NMDM;
         chr->source->data.nmdm.master = NULL;
         chr->source->data.nmdm.slave = NULL;
+        chr->source->data.tcp.host = NULL;
+        chr->source->data.tcp.service = NULL;
+        chr->source->data.tcp.listen = true;
+        chr->source->data.tcp.protocol = VIR_DOMAIN_CHR_TCP_PROTOCOL_RAW;
         chr->deviceType = VIR_DOMAIN_CHR_DEVICE_TYPE_SERIAL;
 
-        if (!STRPREFIX(param, "/dev/nmdm")) {
+        if (STRPREFIX(param, "/dev/nmdm")) {
+            chr->source->type = VIR_DOMAIN_CHR_TYPE_NMDM;
+            chr->source->data.nmdm.master = g_strdup(param);
+            chr->source->data.nmdm.slave = g_strdup(chr->source->data.file.path);
+
+            /* If the last character of the master is 'A', the slave will be 'B'
+             * and vice versa */
+            last = strlen(chr->source->data.nmdm.master) - 1;
+            switch (chr->source->data.file.path[last]) {
+                case 'A':
+                    chr->source->data.nmdm.slave[last] = 'B';
+                    break;
+                case 'B':
+                    chr->source->data.nmdm.slave[last] = 'A';
+                    break;
+                default:
+                    virReportError(VIR_ERR_OPERATION_FAILED,
+                                   _("Failed to set slave for %1$s: last letter not 'A' or 'B'"),
+                                   NULLSTR(chr->source->data.nmdm.master));
+                    goto error;
+            }
+        } else if (STRPREFIX(param, "tcp=")) {
+            char *sep;
+            chr->source->type = VIR_DOMAIN_CHR_TYPE_TCP;
+            param += strlen("tcp=");
+            if (!(sep = strchr(param, ':')))
+                goto error;
+            *sep = '\0';
+            if (sep != param)
+                chr->source->data.tcp.host = g_strdup(param);
+            else
+                chr->source->data.tcp.host = g_strdup("127.0.0.1");
+            param = sep + 1;
+            chr->source->data.tcp.service = g_strdup(param);
+        } else {
             virReportError(VIR_ERR_OPERATION_FAILED,
-                           _("Failed to set com port %1$s: does not start with '/dev/nmdm'."),
+                           _("Failed to set com port %1$s: unsupported source"),
                            type);
-                goto error;
-        }
-
-        chr->source->data.nmdm.master = g_strdup(param);
-        chr->source->data.nmdm.slave = g_strdup(chr->source->data.file.path);
-
-        /* If the last character of the master is 'A', the slave will be 'B'
-         * and vice versa */
-        last = strlen(chr->source->data.nmdm.master) - 1;
-        switch (chr->source->data.file.path[last]) {
-            case 'A':
-                chr->source->data.nmdm.slave[last] = 'B';
-                break;
-            case 'B':
-                chr->source->data.nmdm.slave[last] = 'A';
-                break;
-            default:
-                virReportError(VIR_ERR_OPERATION_FAILED,
-                               _("Failed to set slave for %1$s: last letter not 'A' or 'B'"),
-                               NULLSTR(chr->source->data.nmdm.master));
-                goto error;
+            goto error;
         }
 
         switch (type[3]-'0') {

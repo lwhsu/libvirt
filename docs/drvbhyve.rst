@@ -216,6 +216,19 @@ enabled by adding the following to the domain XML ( :since:`Since 1.2.4` ):
    </devices>
    ...
 
+Alternatively the serial console can be exposed on a TCP port using the
+same XML syntax as for QEMU:
+
+::
+
+   ...
+   <devices>
+     <serial type="tcp">
+       <source mode='bind' host='192.168.0.2' service='4444'/>
+     </serial>
+   </devices>
+   ...
+
 Make sure to load the ``nmdm`` kernel module if you plan to use that.
 
 Then ``virsh console`` command can be used to connect to the text console of a
